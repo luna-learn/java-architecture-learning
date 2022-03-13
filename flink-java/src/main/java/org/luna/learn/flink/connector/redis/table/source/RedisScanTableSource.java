@@ -73,27 +73,38 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
         }
     }
 
+    private void loadDataFromRedis() {
+        int retryLimit = 3;
+        while(retryLimit>0) {
+            scanParams = new ScanParams().count(1);
+            scanResult = redisContainer.hscan(additionalKey + ":" + fieldNames[primaryKeyIndex],
+                    cursor,
+                    scanParams);
+            cursor = scanResult.getCursor();
+            scanBuffer = scanResult.getResult();
+            if (!"0".equals(cursor) || scanBuffer.size() > 0) {
+                break;
+            }
+            retryLimit--;
+            try {
+                Thread.sleep(10); // 如果未获取到数据，尝试短暂等待后重试
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+    }
+
     @Override
     public void openInputFormat() {
         //System.out.println("openInputFormat");
         try{
             redisContainer = connectorOptions.getContainer();
             redisContainer.open();
-            String key = redisMapper.getAdditionalKey();
+            //
+            loadDataFromRedis();
 
-            scanParams = new ScanParams()
-                    .count(1);
-            scanResult = redisContainer.hscan(additionalKey + ":" + fieldNames[primaryKeyIndex],
-                    cursor,
-                    scanParams);
-            cursor = scanResult.getCursor();
-            scanBuffer = scanResult.getResult();
-
-            // keys = redisContainer.keys(key);
-            //System.out.println("openInputFormat, "+ additionalKey + " keys" + keys);
-            //if (keys != null) {
-            //    keySet = keys.iterator();
-            //}
             if (cache == null && cacheExpireMs > 0 && cacheMaxSize > 0) {
                 cache = CacheBuilder.newBuilder()
                         .recordStats()
@@ -171,12 +182,7 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
         }
         // 如果缓冲区没有数据，尝试从redis拉取数据
         if (scanBuffer.size() <= 0  && !"0".equals(cursor)) {
-            scanResult = redisContainer.hscan(additionalKey + ":" + fieldNames[primaryKeyIndex],
-                    cursor,
-                    scanParams);
-            cursor = scanResult.getCursor();
-            scanBuffer = scanResult.getResult();
-
+            loadDataFromRedis();
         }
         return row;
     }
@@ -184,8 +190,8 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
     @Override
     public void close() throws IOException {
         //System.out.println("close");
-        //if (redisContainer != null) {
-        //    redisContainer.close();
-        //}
+        if (redisContainer != null) {
+            redisContainer.close();
+        }
     }
 }

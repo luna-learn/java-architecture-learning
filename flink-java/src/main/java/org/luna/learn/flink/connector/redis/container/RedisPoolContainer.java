@@ -48,6 +48,9 @@ public class RedisPoolContainer implements RedisContainer, Closeable {
 
     @Override
     public void open() throws Exception {
+        if (jedisPool != null || sentinelPool != null) {
+            return;
+        }
         GenericObjectPoolConfig<Jedis> poolConfig = new GenericObjectPoolConfig<>();
         poolConfig.setMaxTotal(options.getMaxTotal());
         poolConfig.setMaxIdle(options.getMaxIdle());
@@ -85,11 +88,12 @@ public class RedisPoolContainer implements RedisContainer, Closeable {
     @Override
     public void close() {
         if (jedisPool != null) {
-            jedisPool.close();
+            jedisPool.returnResource(jedis);
         }
         if (sentinelPool != null) {
-            sentinelPool.close();
+            sentinelPool.returnResource(jedis);
         }
+        jedis = null;
     }
 
     @Override

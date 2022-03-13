@@ -74,19 +74,7 @@ public class TestRedis01 {
 		 *
 		 */
 
-		tableEnv.executeSql("CREATE TABLE REDIS_SINK (" +
-				" NAME VARCHAR(100), " +
-				" `VALUE` VARCHAR(100)," +
-				" PRIMARY KEY (NAME) NOT ENFORCED) \n" +
-				"WITH (\n" +
-				"  'connector' = 'redis',\n" +
-				"  'mode' = 'single',\n" +
-				"  'host' = 'localhost',\n" +
-				"  'port' = '6379',\n" +
-				"  'additional-key' = 'sap:test1', \n" +
-				"  'lookup.cache.max-size' = '1000', \n" +
-				"  'lookup.cache.expire-ms' = '60000' \n" +
-				")");
+
 
 		tableEnv.executeSql("CREATE TABLE MYSQL_SOURCE (\n" +
 				"NAME VARCHAR(100), \n" +
@@ -102,6 +90,20 @@ public class TestRedis01 {
 				"  'connector.username' = 'root',\n" +
 				"  'connector.password' = 'root',\n" +
 				"  'connector.table' = 'test_streaming'\n" +
+				")");
+
+		tableEnv.executeSql("CREATE TABLE REDIS_SINK (" +
+				" NAME VARCHAR(100), " +
+				" `VALUE` VARCHAR(100)," +
+				" PRIMARY KEY (NAME) NOT ENFORCED) \n" +
+				"WITH (\n" +
+				"  'connector' = 'redis',\n" +
+				"  'mode' = 'single',\n" +
+				"  'host' = 'localhost',\n" +
+				"  'port' = '6379',\n" +
+				"  'additional-key' = 'sap:test1', \n" +
+				"  'lookup.cache.max-size' = '1000', \n" +
+				"  'lookup.cache.expire-ms' = '60000' \n" +
 				")");
 
 		tableEnv.executeSql("INSERT INTO REDIS_SINK SELECT NAME,`VALUE` FROM MYSQL_SOURCE");

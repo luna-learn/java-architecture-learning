@@ -9,9 +9,9 @@ import java.util.Set;
 
 public interface RedisContainer {
 
-    public void open() throws Exception;
+    void open() throws Exception;
 
-    public void close();
+    void close();
 
     void set(String key, String value);
 
