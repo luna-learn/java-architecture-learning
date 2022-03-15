@@ -9,14 +9,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.GenericInputSplit;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.core.io.InputSplitAssigner;
-import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.data.DecimalData;
-import org.apache.flink.table.data.GenericRowData;
-import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.*;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.DecimalType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.luna.learn.flink.connector.redis.config.RedisConnectorOptions;
 import org.luna.learn.flink.connector.redis.config.RedisSourceOptions;
 import org.luna.learn.flink.connector.redis.container.RedisContainer;
+import org.luna.learn.flink.connector.redis.mapper.RedisFormatter;
 import org.luna.learn.flink.connector.redis.mapper.RedisMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +25,7 @@ import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -35,8 +36,10 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
     private final RedisSourceOptions sourceOptions;
     private final RedisMapper redisMapper;
     private RedisContainer redisContainer;
-    private String[] fieldNames;
-
+    private final String[] fieldNames;
+    private final DataType[] dataTypes;
+    private final LogicalType[] logicalTypes;
+    private final RedisFormatter formatter;
     private final int fieldNum;
     private final String primaryKey;
     private int primaryKeyIndex = 0;
@@ -60,6 +63,7 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
         this.redisMapper = redisMapper;
         this.additionalKey = redisMapper.getAdditionalKey();
         this.fieldNames = redisMapper.getFieldNames();
+        this.dataTypes = redisMapper.getDataTypes();
         this.cacheExpireMs = sourceOptions.getCacheExpireMs();
         this.cacheMaxSize = sourceOptions.getCacheMaxSize();
 
@@ -71,12 +75,19 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
                 break;
             }
         }
+
+        this.logicalTypes = new LogicalType[fieldNum];
+        for (int i=0; i<fieldNum; i++) {
+            this.logicalTypes[i] = dataTypes[i].getLogicalType();
+        }
+        this.formatter = new RedisFormatter();
     }
 
-    private void loadDataFromRedis() {
-        int retryLimit = 3;
-        while(retryLimit>0) {
-            scanParams = new ScanParams().count(1);
+    private void tryLoadDataFromRedis() {
+        int maxRetry = 3;
+        while(maxRetry > 0) {
+            scanParams = new ScanParams()
+                    .count(1);
             scanResult = redisContainer.hscan(additionalKey + ":" + fieldNames[primaryKeyIndex],
                     cursor,
                     scanParams);
@@ -85,33 +96,29 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
             if (!"0".equals(cursor) || scanBuffer.size() > 0) {
                 break;
             }
-            retryLimit--;
+            maxRetry--;
             try {
-                Thread.sleep(10); // 如果未获取到数据，尝试短暂等待后重试
+                Thread.sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
-
-
     }
 
     @Override
     public void openInputFormat() {
-        //System.out.println("openInputFormat");
         try{
             redisContainer = connectorOptions.getContainer();
             redisContainer.open();
             //
-            loadDataFromRedis();
-
+            tryLoadDataFromRedis();
+            //
             if (cache == null && cacheExpireMs > 0 && cacheMaxSize > 0) {
                 cache = CacheBuilder.newBuilder()
                         .recordStats()
                         .expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
                         .maximumSize(cacheMaxSize)
                         .build();
-                // System.out.println("openInputFormat, cahce " + cache);
             }
         } catch (Exception e) {
             System.out.println("openInputFormat, " + e);
@@ -176,13 +183,13 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
             row = new GenericRowData(fieldNames.length);
             for (int i=0; i<fieldNum; i++) {
                 String value = redisContainer.hget(additionalKey + ":" + fieldNames[i], field);
-                row.setField(i, StringData.fromString(value));
+                row.setField(i, formatter.encode(value, logicalTypes[i]));
             }
             cache.put(cacheKey, row);
         }
         // 如果缓冲区没有数据，尝试从redis拉取数据
         if (scanBuffer.size() <= 0  && !"0".equals(cursor)) {
-            loadDataFromRedis();
+            tryLoadDataFromRedis();
         }
         return row;
     }
@@ -190,8 +197,8 @@ public class RedisScanTableSource extends RichInputFormat<RowData, InputSplit> {
     @Override
     public void close() throws IOException {
         //System.out.println("close");
-        if (redisContainer != null) {
-            redisContainer.close();
-        }
+        //if (redisContainer != null) {
+        //    redisContainer.close();
+        //}
     }
 }

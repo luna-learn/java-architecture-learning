@@ -3,19 +3,18 @@ package org.luna.learn.flink.connector.redis.table.sink;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.flink.table.api.DataTypes;
-import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.binary.BinaryRowData;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.luna.learn.flink.connector.redis.config.RedisConnectorOptions;
 import org.luna.learn.flink.connector.redis.config.RedisSinkOptions;
 import org.luna.learn.flink.connector.redis.container.RedisContainer;
+import org.luna.learn.flink.connector.redis.mapper.RedisFormatter;
 import org.luna.learn.flink.connector.redis.mapper.RedisMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Objects;
 
 public class RedisSink<IN> extends RichSinkFunction<IN> {
@@ -29,8 +28,11 @@ public class RedisSink<IN> extends RichSinkFunction<IN> {
 
     private final String[] fieldNames;
     private final TypeInformation<?>[] fieldTypes;
+    private final DataType[] dataTypes;
+    private final LogicalType[] logicalTypes;
     private final String additionalKey;
     private final Integer ttl;
+    private final RedisFormatter formatter;
 
     private final int fieldNum;
     private final String primaryKey;
@@ -46,6 +48,7 @@ public class RedisSink<IN> extends RichSinkFunction<IN> {
 
         this.fieldNames = redisMapper.getFieldNames();
         this.fieldTypes = redisMapper.getFieldTypes();
+        this.dataTypes = redisMapper.getDataTypes();
         this.additionalKey = redisMapper.getAdditionalKey();
         this.ttl = redisMapper.getKeyTtl();
 
@@ -57,6 +60,12 @@ public class RedisSink<IN> extends RichSinkFunction<IN> {
                 break;
             }
         }
+        this.logicalTypes = new LogicalType[fieldNum];
+        for (int i=0; i<fieldNum; i++) {
+            this.logicalTypes[i] = dataTypes[i].getLogicalType();
+        }
+
+        this.formatter = new RedisFormatter();
 
     }
 
@@ -77,7 +86,7 @@ public class RedisSink<IN> extends RichSinkFunction<IN> {
             key = String.valueOf(row.getString(primaryKeyIndex));
             for (int i=0; i<length; i++) {
                 try {
-                    value = String.valueOf(row.getString(i));
+                    value = String.valueOf(formatter.decode(row, i, logicalTypes[i]));
                     redisContainer.hset(additionalKey + ":" + fieldNames[i], key, value);
                 } catch (Exception e) {
                     e.printStackTrace();

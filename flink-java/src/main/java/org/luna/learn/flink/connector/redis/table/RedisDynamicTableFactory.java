@@ -1,17 +1,14 @@
 package org.luna.learn.flink.connector.redis.table;
 
-import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.connector.format.EncodingFormat;
+import org.apache.flink.table.api.constraints.UniqueConstraint;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
-import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
-import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.luna.learn.flink.connector.redis.config.RedisOptions;
 import org.luna.learn.flink.connector.redis.mapper.RedisCommand;
@@ -38,12 +35,15 @@ public class RedisDynamicTableFactory
         //        SerializationFormatFactory.class,
         //        FactoryUtil.FORMAT);
         TableSchema schema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+        UniqueConstraint primaryKeys = schema.getPrimaryKey().orElseGet(null);
 
         RedisMapper mapper = RedisUpsertMapper.builder()
                 .setRedisCommand(RedisCommand.HSET)
                 .setAdditionalKey(config.get(RedisOptions.ADDITIONAL_KEY))
                 .setFieldNames(schema.getFieldNames())
                 .setFieldTypes(schema.getFieldTypes())
+                .setDataTypes(schema.getFieldDataTypes())
+                .setPrimaryKey(primaryKeys!=null?primaryKeys.getColumns().get(0) : null)
                 .build();
         return new RedisDynamicTableSink(RedisOptions.getConnectorOptions(config),
                 RedisOptions.getSinkOptions(config),
@@ -57,11 +57,15 @@ public class RedisDynamicTableFactory
         ReadableConfig config = helper.getOptions();
 
         TableSchema schema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+        UniqueConstraint primaryKeys = schema.getPrimaryKey().orElseGet(null);
+
         RedisMapper mapper = RedisQueryMapper.builder()
                 .setRedisCommand(RedisCommand.HGET)
                 .setAdditionalKey(config.get(RedisOptions.ADDITIONAL_KEY))
                 .setFieldNames(schema.getFieldNames())
                 .setFieldTypes(schema.getFieldTypes())
+                .setDataTypes(schema.getFieldDataTypes())
+                .setPrimaryKey(primaryKeys!=null?primaryKeys.getColumns().get(0) : null)
                 .build();
         return new RedisDynamicTableSource(RedisOptions.getConnectorOptions(config),
                 RedisOptions.getSourceOptions(config),

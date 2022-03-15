@@ -5,6 +5,4 @@ public enum RedisCommand {
     GET,
     HSET,
     HGET;
-
-
 }

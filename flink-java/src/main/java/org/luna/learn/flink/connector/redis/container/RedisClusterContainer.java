@@ -4,18 +4,20 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.luna.learn.flink.connector.redis.UnsupportedRedisException;
 import org.luna.learn.flink.connector.redis.config.RedisConnectorOptions;
 import org.luna.learn.flink.connector.redis.config.RedisOptions;
-import org.luna.learn.flink.connector.redis.container.RedisContainer;
 import redis.clients.jedis.Connection;
 import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
+import redis.clients.jedis.commands.JedisCommands;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-public class RedisClusterContainer implements RedisContainer {
+public class RedisClusterContainer extends RedisBaseContainer{
 
     private final RedisConnectorOptions options;
     private JedisCluster cluster;
@@ -72,6 +74,16 @@ public class RedisClusterContainer implements RedisContainer {
             cluster.close();
         }
     }
+
+    @Override
+    protected JedisCommands getCommander() {
+        return getResource();
+    }
+
+    public void del(String key) {
+        getResource().del(key);
+    }
+
     @Override
     public void set(String key, String value) {
         getResource().set(key, value);
@@ -85,6 +97,11 @@ public class RedisClusterContainer implements RedisContainer {
     @Override
     public ScanResult<Map.Entry<String, String>> hscan(String key, String cursor, ScanParams params) {
         return  getResource().hscan(key, cursor, params);
+    }
+
+    @Override
+    public void hdel(String key, String field) {
+        getResource().hdel(key, field);
     }
 
     @Override

@@ -3,7 +3,6 @@ package org.luna.learn.flink.connector.redis.container;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,11 +12,15 @@ public interface RedisContainer {
 
     void close();
 
+    void del(String key);
+
     void set(String key, String value);
 
     String get(String key);
 
     ScanResult<Map.Entry<String, String>> hscan(String key, String cursor, ScanParams params);
+
+    void hdel(String key, String field);
 
     default ScanResult<Map.Entry<String, String>> hscan(String key, String cursor) {
         return hscan(key, cursor, new ScanParams());

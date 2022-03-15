@@ -7,18 +7,16 @@ import org.luna.learn.flink.connector.redis.config.RedisOptions;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisSentinelPool;
+import redis.clients.jedis.commands.JedisCommands;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
-import redis.clients.jedis.util.Pool;
 
-import java.io.Closeable;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class RedisPoolContainer implements RedisContainer, Closeable {
+public class RedisPoolContainer extends RedisBaseContainer {
 
     private final RedisConnectorOptions options;
     private JedisPool jedisPool;
@@ -48,9 +46,6 @@ public class RedisPoolContainer implements RedisContainer, Closeable {
 
     @Override
     public void open() throws Exception {
-        if (jedisPool != null || sentinelPool != null) {
-            return;
-        }
         GenericObjectPoolConfig<Jedis> poolConfig = new GenericObjectPoolConfig<>();
         poolConfig.setMaxTotal(options.getMaxTotal());
         poolConfig.setMaxIdle(options.getMaxIdle());
@@ -88,12 +83,16 @@ public class RedisPoolContainer implements RedisContainer, Closeable {
     @Override
     public void close() {
         if (jedisPool != null) {
-            jedisPool.returnResource(jedis);
+            jedisPool.close();
         }
         if (sentinelPool != null) {
-            sentinelPool.returnResource(jedis);
+            sentinelPool.close();
         }
-        jedis = null;
+    }
+
+    @Override
+    protected JedisCommands getCommander() {
+        return getResource();
     }
 
     @Override
