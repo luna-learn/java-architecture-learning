@@ -1,10 +1,8 @@
 package org.luna.learn.flink.executor;
 
-import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.accumulators.IntCounter;
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.java.io.TextOutputFormat;
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.client.cli.CliFrontend;
 import org.apache.flink.client.cli.CustomCommandLine;
@@ -16,21 +14,20 @@ import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
-import org.apache.flink.shaded.curator4.org.apache.curator.shaded.com.google.common.base.Utf8;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.*;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.api.internal.TableEnvironmentImpl;
+import org.apache.flink.table.functions.AggregateFunction;
+import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableAggregateFunction;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
-import org.apache.flink.table.sinks.CsvTableSink;
-
-
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.CloseableIterator;
@@ -38,14 +35,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -121,6 +116,12 @@ public final class LocalExecutor implements Executor {
         tableEnv.getConfig().getConfiguration().setString("taskmanager.memory.network.max", "4gb");
         tableEnv.getConfig().getConfiguration().setInteger("taskmanager.network.numberOfBuffers", 16);
 
+        //tableEnv.registerFunction("to_char", new ToChar());
+        //tableEnv.registerFunction("to_date", new ToDate());
+        //tableEnv.registerFunction("to_timestamp", new ToTimestamp());
+        //tableEnv.registerFunction("date_format", new DateFormat());
+        //tableEnv.registerFunction("days", new Days());
+        //tableEnv.registerFunction("length", new Length());
     }
 
     @Override
@@ -202,7 +203,6 @@ public final class LocalExecutor implements Executor {
                     .executeAndCollect("Parse sql file " + sqlFile);
             final StringBuffer sqlContent = new StringBuffer();
             sqlStatements.forEachRemaining(e -> sqlContent.append(e).append("\n"));
-
             for (String sql: sqlContent.toString().split(";\r\n|;\n")) {
                 if (!sql.isEmpty()) {
                     executeSql(sql);
@@ -213,6 +213,26 @@ public final class LocalExecutor implements Executor {
             // e.printStackTrace();
             throw new RuntimeException("Execute sql file error: " + sqlFile, e);
         }
+    }
+
+    @Override
+    public void registerFunction(String name, TableFunction function) {
+        tableEnv.registerFunction(name, function);
+    }
+
+    @Override
+    public void registerFunction(String name, TableAggregateFunction function) {
+        tableEnv.registerFunction(name, function);
+    }
+
+    @Override
+    public void registerFunction(String name, ScalarFunction function) {
+        tableEnv.registerFunction(name, function);
+    }
+
+    @Override
+    public void registerFunction(String name, AggregateFunction function) {
+        tableEnv.registerFunction(name, function);
     }
 
     private void showJobState(TableResult tableResult) {

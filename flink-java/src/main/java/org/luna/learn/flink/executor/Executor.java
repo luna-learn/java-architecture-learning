@@ -1,8 +1,9 @@
 package org.luna.learn.flink.executor;
 
-import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.TableColumn;
-import org.apache.flink.table.descriptors.Schema;
+import org.apache.flink.table.functions.AggregateFunction;
+import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableAggregateFunction;
+import org.apache.flink.table.functions.TableFunction;
 
 /**
  * @author Liu Yang
@@ -31,6 +32,12 @@ public interface Executor {
     void executeSqlFile(String sqlFile);
 
     // 注册自定义函数
-    default void registerUDF() {}
+    void registerFunction(String name, TableFunction function);
+
+    void registerFunction(String name, TableAggregateFunction function);
+
+    void registerFunction(String name, ScalarFunction function);
+
+    void registerFunction(String name, AggregateFunction function);
 
 }

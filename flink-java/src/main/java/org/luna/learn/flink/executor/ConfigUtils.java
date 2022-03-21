@@ -5,6 +5,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,6 +26,25 @@ public final class ConfigUtils {
             throw new RuntimeException("Can not load config from " + path);
         }
     }
+
+    public static Map<String, Class<?>> getUserDefinedFunctions(Map<String, String> properties) {
+        final String prefix = "flink.udf.";
+        final Map<String, Class<?>> result = new HashMap<>();
+        properties.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(prefix))
+                .forEach(entry -> {
+                    String key = entry.getKey().replace(prefix, "");
+                    String className = entry.getValue();
+                    try {
+                        Class<?> cls = Class.forName(className);
+                        result.put(key, cls);
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                });
+        return result;
+    }
+
 
     public static Set<String> getJobs(Map<String, String> properties) {
         return Arrays.stream(properties.getOrDefault("flink.job.execute", "")
