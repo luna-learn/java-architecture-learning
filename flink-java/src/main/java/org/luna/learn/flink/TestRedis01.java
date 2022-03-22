@@ -75,7 +75,6 @@ public class TestRedis01 {
 		 */
 
 
-
 		tableEnv.executeSql("CREATE TABLE MYSQL_SOURCE (\n" +
 				"NAME VARCHAR(100), \n" +
 				"`VALUE` VARCHAR(100), \n" +

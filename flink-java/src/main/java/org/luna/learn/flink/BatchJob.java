@@ -19,8 +19,8 @@
 package org.luna.learn.flink;
 
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.luna.learn.flink.connector.redis.config.RedisConnectorOptions;
-import org.luna.learn.flink.connector.redis.container.RedisContainer;
+import org.apache.flink.connector.redis.config.RedisConnectorOptions;
+import org.apache.flink.connector.redis.container.RedisContainer;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 

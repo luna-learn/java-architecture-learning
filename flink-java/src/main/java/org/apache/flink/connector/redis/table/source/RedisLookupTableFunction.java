@@ -109,8 +109,8 @@ public class RedisLookupTableFunction extends TableFunction<RowData> {
                 row = new GenericRowData(fieldNum);
                 for(int j=0; j<fieldNum; j++) {
                     String value = redisContainer.hget(additionalKey + ":" + fieldNames[j],
-                            String.valueOf(values[0]));
-                    row.setField(i, formatter.encode(value, logicalTypes[j]));
+                            key);
+                    row.setField(j, formatter.encode(value, logicalTypes[j]));
                 }
                 if (cache != null) {
                     cache.put(key, row);
